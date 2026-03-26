@@ -1,349 +1,178 @@
 # QUANTIRA
 
-> **Financial Fraud Detection Platform for Indian Public Companies**
+### Financial Fraud Detection Platform for Indian Public Companies
+
+> ⚠️ **LEGAL DISCLAIMER** — Please read before use.
 >
-> Detect accounting fraud, earnings manipulation, and financial distress using advanced anomaly detection with sector-aware intelligence.
+> QUANTIRA is an independent research and educational tool. The creator is **not registered with SEBI (Securities and Exchange Board of India)** or any other financial regulatory authority. Nothing in this platform constitutes financial advice, investment advice, trading recommendations, or any form of regulated financial service. All output — including anomaly scores, fraud signals, and sector analysis — is for **informational and research purposes only**.
+>
+> This tool does not recommend buying, selling, or holding any security. Past financial patterns are not indicative of future performance. Users are solely responsible for their own investment decisions. Always consult a SEBI-registered investment advisor before making financial decisions.
+>
+> Use of this platform implies acceptance of these terms.
 
 ---
 
-## 🎯 Overview
+Detect accounting fraud, earnings manipulation, and financial distress using advanced anomaly detection with sector-aware intelligence — for any NSE/BSE-listed Indian company.
 
-QUANTIRA is a seven-day project can be launch as a product that builds an **intelligent financial fraud detection system** for Indian publicly-traded companies (NSE/BSE listed). It combines:
-
-- **Day 1**: Automated data ingestion (10+ years of financials)
-- **Day 2**: Advanced anomaly detection (18+ financial ratios, Z-score analysis)
-- **Day 3**: Sector-aware filtering (context-intelligent fraud detection)
-
-The system can analyze any Indian company in **30 seconds** and identify fraud signals with **40-60% fewer false positives** than traditional methods.
+Built in **2 days** at a hackathon project idea | March 2026
 
 ---
 
-## ✨ Key Features
+## Overview
 
-### Day 1: Data Ingestion Pipeline
+QUANTIRA is an intelligent financial fraud detection system for Indian publicly-traded companies. It ingests 10+ years of historical financials, computes 18+ financial ratios, runs Z-score anomaly detection, and then applies sector-aware filtering to suppress false positives that are normal for a given industry.
 
-- **Automated scraping** from Screener.in (10-12 years per company)
-- **Real-time progress tracking** via WebSocket
-- **Async job processing** with BullMQ + Redis
-- **Structured storage** in MongoDB with nested schema
-- **No PDFs required** — clean structured data
-
-### Day 2: Anomaly Detection Engine
-
-- **18+ financial ratios** computed automatically:
-  - Profitability: Net Margin, Operating Margin, ROA, ROE
-  - Leverage: Debt/Equity, Interest Coverage, Debt/Assets
-  - Efficiency: Receivables Days, Inventory Days, Asset Turnover
-  - Quality: Free Cash Flow/NI, Cash Conversion, Tax Rate
-- **Z-score analysis** against 10-year company history
-- **12 fraud detection rules**:
-  - Cash flow quality issues
-  - Accrual anomalies
-  - Margin divergence
-  - Debt stress
-  - Earnings manipulation signals
-  - And 7 more patterns
-
-### Day 3: Sector Intelligence (The Judges' Favorite ⭐)
-
-- **8 pre-seeded SEBI sector profiles** (IT, Pharma, Banking, FMCG, etc.)
-- **Sector benchmarks**: Median ± 1.5σ thresholds
-- **Intelligent filtering**: Suppress false positives that are normal for the sector
-- **Context-aware anomalies**: Same metric treated differently by sector
-- **Vector DB ready**: Chroma/Pinecone integration for semantic search
-- **Peer comparison**: Percentile ranking vs sector peers
+The pipeline analyzes any Indian company in ~30 seconds with approximately 40–60% fewer false positives than naive threshold-based methods.
 
 ---
 
-## 🏗️ Architecture
+## What Was Built
+
+### Day 1 — Data Ingestion Pipeline
+
+- Automated scraping from Screener.in (10–12 years per company)
+- Real-time progress tracking via WebSocket
+- Async job processing with BullMQ + Redis
+- Structured storage in MongoDB with nested schema
+- No PDFs required — clean, structured financial data
+
+### Day 2 — Anomaly Detection Engine
+
+18+ financial ratios computed automatically across four categories:
+
+| Category      | Metrics                                          |
+| ------------- | ------------------------------------------------ |
+| Profitability | Net Margin, Operating Margin, ROA, ROE           |
+| Leverage      | Debt/Equity, Interest Coverage, Debt/Assets      |
+| Efficiency    | Receivables Days, Inventory Days, Asset Turnover |
+| Quality       | Free Cash Flow/NI, Cash Conversion, Tax Rate     |
+
+Z-score analysis is run against each company's own 10-year history. 12 fraud detection rules cover cash flow quality issues, accrual anomalies, margin divergence, debt stress, earnings manipulation signals, and more.
+
+### Day 3 — Sector Intelligence
+
+The core differentiator. Rather than applying flat rules to all companies equally, QUANTIRA evaluates each anomaly in sector context.
+
+| Traditional Approach            | QUANTIRA Approach                                       |
+| ------------------------------- | ------------------------------------------------------- |
+| "50% revenue growth = RED FLAG" | "50% growth → normal for IT, abnormal for Metals"       |
+| "5x leverage = SOLVENCY RISK"   | "5x → normal for Banks (5–15x), abnormal for Tech"      |
+| "120 receivables days = FRAUD"  | "120 days → normal for Construction, suspicious for IT" |
+
+8 pre-seeded SEBI sector profiles: IT, Pharma, Banking, FMCG, Construction, Energy, Metals, Automotive. Benchmarks use Median ± 1.5σ thresholds. Vector DB integration (Chroma/Pinecone) is ready for semantic peer search.
+
+---
+
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                   QUANTIRA System Architecture                   │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  Client (Frontend - TBD)                                        │
-│          ↓                                                       │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │  Express.js API Server (Port 5000)                      │   │
-│  │  • POST /api/ingest — Queue ingestion job              │   │
-│  │  • GET /api/ingest/company/:id/financials              │   │
-│  │  • GET /api/ingest/search?q=name                        │   │
-│  │  • WebSocket /ws — Live progress tracking              │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│           ↓                                                      │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │  BullMQ Job Queue (Redis/Upstash)                       │   │
-│  │  • Async job processing                                 │   │
-│  │  • 2 retries, 5s exponential backoff                    │   │
-│  │  • Max 3 concurrent, 5/minute rate limit                │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│           ↓                                                      │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │  Background Worker (Node.js)                            │   │
-│  │  • Day 1: Scrape → Transform → Store                   │   │
-│  │  • Day 2: Compute metrics → Z-scores → Anomalies       │   │
-│  │  • Day 3: Filter by sector → Store context             │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│           ↓                                                      │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │  MongoDB (Database)                                      │   │
-│  │  • Companies (master records)                            │   │
-│  │  • Filings (per company per year)                        │   │
-│  │  • FinancialData (18+ metrics, anomaly profiles)         │   │
-│  │  • SectorProfiles (benchmarks)                           │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│           ↓                                                      │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │  Data Sources                                            │   │
-│  │  • Screener.in (primary: historical financials)         │   │
-│  │  • Vector DB (Chroma/Pinecone - ready for Day 3.5)     │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+Client (Frontend)
+       ↓
+Express.js API Server (Port 5000)
+  • POST /api/ingest
+  • GET  /api/ingest/company/:id/financials
+  • GET  /api/ingest/search?q=name
+  • WebSocket /ws
+       ↓
+BullMQ Job Queue (Redis/Upstash)
+  • Async processing, 2 retries, 5s backoff
+  • Max 3 concurrent, 5/min rate limit
+       ↓
+Background Worker (Node.js)
+  • Day 1: Scrape → Transform → Store
+  • Day 2: Compute metrics → Z-scores → Anomalies
+  • Day 3: Filter by sector → Store context
+       ↓
+MongoDB
+  • Companies, Filings, FinancialData, SectorProfiles
+       ↓
+Data Sources
+  • Screener.in (primary)
+  • Vector DB (Chroma/Pinecone — ready)
 ```
 
-### Technology Stack
-
-**Backend:**
-
-- Node.js 24.11 + Express.js
-- MongoDB (Mongoose ODM)
-- Upstash Redis (Job queue via BullMQ)
-- Axios + Cheerio (Web scraping)
-- WebSocket (Real-time updates)
-
-**Data Sources:**
-
-- Screener.in (web scraping)
-- Vector DB ready (Chroma, Pinecone)
-
-**Deployment:**
-
-- Local development: npm run dev + npm run worker
-- Production: Cloud-ready (Vercel, Railway, Render)
+**Stack:** Node.js 24 + Express.js · MongoDB (Mongoose) · Upstash Redis · BullMQ · Axios + Cheerio · WebSocket
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
-### Prerequisites
+**Prerequisites:** Node.js 20+, MongoDB Atlas (free tier), Upstash Redis (free tier)
 
 ```bash
-Node.js 20+
-MongoDB Atlas account (free tier ok)
-Upstash Redis account (free tier ok)
-```
-
-### Setup
-
-1. **Clone & Install**
-
-```bash
+# 1. Install
 cd quantira/backend
 npm install
-```
 
-2. **Configure Environment**
-
-```bash
+# 2. Configure
 cp .env.example .env
-# Edit .env with your credentials:
-# MONGODB_URI=mongodb+srv://...
-# REDIS_URL=redis://... (or Upstash)
-```
+# Add MONGODB_URI and REDIS_URL
 
-3. **Start Services**
+# 3. Run
+npm run dev      # Terminal 1: API server
+npm run worker   # Terminal 2: Background worker
 
-```bash
-# Terminal 1: API Server
-npm run dev
+# 4. Test
+curl -X POST http://localhost:5000/api/ingest \
+  -H "Content-Type: application/json" \
+  -d '{"query":"Infosys Limited"}'
 
-# Terminal 2: Background Worker
-npm run worker
-```
-
-4. **Test**
-
-```bash
-# PowerShell or curl
-$b='{"query":"Infosys Limited"}'
-Invoke-WebRequest -Uri http://localhost:5000/api/ingest `
-  -Method POST `
-  -Headers @{"Content-Type"="application/json"} `
-  -Body $b -UseBasicParsing
-
-# Wait 30 seconds...
-
-# Get results
-$f=Invoke-RestMethod -Uri "http://localhost:5000/api/ingest/company/[companyId]/financials"
-$f[11].pnl          # Day 1: P&L data
-$f[11].computedMetrics  # Day 2: 18+ metrics
-$f[11].anomalyProfile   # Day 3: Sector context
+# Wait ~30 seconds, then fetch results
+curl http://localhost:5000/api/ingest/company/[companyId]/financials
 ```
 
 ---
 
-## 📊 API Endpoints
+## API Reference
 
-### Queue Ingestion
+### POST `/api/ingest`
 
-```
-POST /api/ingest
-Content-Type: application/json
+Queue a company for ingestion.
 
-{
-  "query": "Infosys Limited"
-}
-
-Response:
-{
-  "jobId": "ingest-infosys-limited-...",
-  "message": "Ingestion started"
-}
+```json
+{ "query": "Infosys Limited" }
 ```
 
-### Get Company Financials (Day 1 + Day 2 + Day 3)
+### GET `/api/ingest/company/:id/financials`
 
-```
-GET /api/ingest/company/:companyId/financials
+Returns 12 years of financial records, each containing:
 
-Response: Array of 12 financial records with:
-- balanceSheet: Assets, liabilities, debt
-- pnl: Revenue, profit, margins
-- cashFlow: Operating CF, free CF
-- computedMetrics: 18+ ratios
-- zScores: Z-score per metric
-- anomalyProfile: Flagged metrics + sector context
-```
+- `balanceSheet` — assets, liabilities, debt
+- `pnl` — revenue, profit, margins
+- `cashFlow` — operating CF, free CF
+- `computedMetrics` — 18+ ratios
+- `zScores` — Z-score per metric
+- `anomalyProfile` — flagged metrics with sector context
 
-### Search Companies
+### GET `/api/ingest/search?q=name`
 
-```
-GET /api/ingest/search?q=infosys
+Search for companies by name.
 
-Response:
-[
-  {
-    "id": "ObjectId",
-    "name": "Infosys Limited",
-    "nseSymbol": "INFY",
-    "bseCode": "500209",
-    "yearsAvailable": [2014, 2015, ..., 2025]
-  }
-]
-```
+### GET `/api/ingest/status/:jobId`
 
-### Queue Stats
+Check job progress.
 
-```
-GET /api/ingest/queue-stats
+### GET `/api/ingest/queue-stats`
 
-Response:
-{
-  "waiting": 0,
-  "active": 0,
-  "completed": 15,
-  "failed": 0
-}
-```
+View queue health.
 
-### Get Job Status
+### WebSocket `/ws`
 
-```
-GET /api/ingest/status/:jobId
-
-Response:
-{
-  "jobId": "ingest-...",
-  "state": "completed",
-  "progress": { "stage": "complete", "percent": 100 },
-  "result": { ... }
-}
-```
-
-### WebSocket (Real-time Progress)
-
-```
-ws://localhost:5000/ws
-
-Subscribe:
-{ "type": "subscribe", "jobId": "ingest-..." }
-
-Receive:
-{ "type": "progress", "jobId": "...", "stage": "ingesting", "percent": 60, "message": "..." }
-{ "type": "completed", "jobId": "...", "result": { ... } }
-```
+Subscribe to real-time job progress updates.
 
 ---
 
-## 📈 Fraud Detection Capabilities
-
-### What QUANTIRA Detects
-
-**Earnings Manipulation:**
-
-- Accrual anomalies (high profit, low cash flow)
-- Revenue inflation (receivables growing faster than revenue)
-- Expense manipulation (unusual operating vs net margins)
-
-**Cash Flow Manipulation:**
-
-- Working capital games (inventory buildup, receivables inflation)
-- Channel stuffing (unusual receivables days)
-- Quality of earnings deterioration
-
-**Financial Distress:**
-
-- Debt stress (high leverage + weak interest coverage)
-- Deteriorating interest coverage
-- Declining profitability trends
-
-**Suspicious Transactions:**
-
-- Excessive other income (non-operational revenue)
-- Unusual tax rates
-- Cost structure anomalies
-
-### Day 3: Sector-Aware Filtering
-
-Instead of simple rules, QUANTIRA understands **context**:
-
-```
-Traditional: "50% revenue growth = RED FLAG"
-QUANTIRA: "50% growth → is this IT (45% normal) or Startup (80% normal)?"
-
-Traditional: "5x leverage = SOLVENCY RISK"
-QUANTIRA: "5x → is this Bank (normal 5-15x) or Tech (abnormal 0-1x)?"
-
-Traditional: "120 receivables days = FRAUD"
-QUANTIRA: "120 → is this Construction (normal 120-180) or IT (abnormal 30-60)?"
-```
-
-**Result: 40-60% fewer false positives while preserving true fraud detection.**
-
----
-
-## 📊 Sample Output
-
-### Healthy Company (Infosys)
+## Sample Output
 
 ```json
 {
   "year": 2024,
-  "pnl": {
-    "revenue": 162990,
-    "ebitda": 39236,
-    "pat": 26750,
-    "eps": 64.32
-  },
   "computedMetrics": {
     "netMargin": 16.41,
     "operatingMargin": 24.07,
     "debtToEquity": 0.35,
     "interestCoverage": 82.75,
-    "roe": 27.92,
-    "roa": 18.1
+    "roe": 27.92
   },
   "anomalyProfile": {
     "flaggedMetrics": [
@@ -351,10 +180,6 @@ QUANTIRA: "120 → is this Construction (normal 120-180) or IT (abnormal 30-60)?
         "metric": "CASH_FLOW_QUALITY",
         "status": "suppressed",
         "isNormalForSector": true,
-        "sectorContext": {
-          "sectorMedian": 0.78,
-          "companyValue": 0.22
-        },
         "reason": "Normal for Information Technology sector"
       }
     ],
@@ -367,225 +192,111 @@ QUANTIRA: "120 → is this Construction (normal 120-180) or IT (abnormal 30-60)?
 
 ---
 
-## 🗂️ Project Structure
+## Supported Sectors
+
+| Sector       | Example Companies              |
+| ------------ | ------------------------------ |
+| IT           | INFY, TCS, WIPRO, HCLTECH      |
+| Pharma       | SUNPHARMA, DRREDDY, CIPLA      |
+| Banking      | HDFCBANK, ICICIBANK, SBIN      |
+| FMCG         | HINDUNILVR, ITC, NESTLEIND     |
+| Construction | DLF, LODHA, ADANIPORTS         |
+| Energy       | RELIANCE, NTPC, ONGC           |
+| Metals       | TATASTEEL, HINDALCO, VEDL      |
+| Automotive   | MARUTI, TATAMOTORS, HEROMOTOCO |
+
+To add a new sector, edit `SECTOR_DEFINITIONS` in `src/services/sectorIntelligence.js`.
+
+---
+
+## Project Structure
 
 ```
 quantira/
 ├── backend/
-│   ├── src/
-│   │   ├── config/
-│   │   │   └── database.js          # MongoDB + Redis setup
-│   │   ├── models/
-│   │   │   └── index.js             # Company, Filing, FinancialData schemas
-│   │   ├── services/
-│   │   │   ├── anomalyEngine.js     # Day 2: Core anomaly detection
-│   │   │   ├── anomalyEngineV2.js   # Day 3: Enhanced with sector filtering
-│   │   │   ├── sectorIntelligence.js # Day 3: Sector profiles & filtering
-│   │   │   ├── ingestionOrchestrator.js  # Day 1: Orchestration + transform
-│   │   │   └── screenersScarper.js   # Web scraper (Screener.in)
-│   │   ├── jobs/
-│   │   │   ├── ingestionQueue.js    # BullMQ job queue setup
-│   │   │   └── worker.js            # Background job processor
-│   │   ├── routes/
-│   │   │   └── ingestion.js         # API endpoints
-│   │   ├── utils/
-│   │   │   ├── logger.js            # Logging utility
-│   │   │   └── helpers.js           # Math helpers (safeDivide, calcZScore, etc.)
-│   │   └── server.js                # Express app + WebSocket
-│   ├── package.json
-│   ├── .env.example
-│   └── README.md
+│   └── src/
+│       ├── config/database.js
+│       ├── models/index.js
+│       ├── services/
+│       │   ├── anomalyEngine.js
+│       │   ├── anomalyEngineV2.js
+│       │   ├── sectorIntelligence.js
+│       │   ├── ingestionOrchestrator.js
+│       │   └── screenersScraper.js
+│       ├── jobs/
+│       │   ├── ingestionQueue.js
+│       │   └── worker.js
+│       ├── routes/ingestion.js
+│       ├── utils/
+│       │   ├── logger.js
+│       │   └── helpers.js
+│       └── server.js
 ├── docs/
-│   ├── COMPLETION_REPORT.md         # Executive summary
-│   ├── TESTING_CHECKLIST.md         # What to validate
-│   ├── ARCHITECTURE_SUMMARY.md      # Detailed design
-│   ├── QUICK_REFERENCE.md           # One-page testing guide
-│   ├── DAY3_IMPLEMENTATION_GUIDE.md  # Sector intelligence details
-│   └── DAY3_QUICKSTART.md           # 15-minute setup
-└── README.md                         # This file
+│   ├── COMPLETION_REPORT.md
+│   ├── TESTING_CHECKLIST.md
+│   ├── ARCHITECTURE_SUMMARY.md
+│   └── DAY3_IMPLEMENTATION_GUIDE.md
+└── README.md
 ```
 
 ---
 
-## 📋 Supported Companies & Sectors
+## Performance
 
-### Pre-seeded Sectors (Day 3)
-
-| Sector           | Sample Companies           | Key Metric              |
-| ---------------- | -------------------------- | ----------------------- |
-| **IT**           | INFY, TCS, WIPRO, HCL      | 15-35% margins          |
-| **Pharma**       | SUNPHARMA, DRREDDY, CIPLA  | 10-25% margins          |
-| **Banking**      | HDFCBANK, ICICIBANK, SBIN  | 5-15x leverage (normal) |
-| **FMCG**         | HINDUNILVR, ITC, NESTLEIND | 12-25% margins          |
-| **Construction** | DLF, LODHA, ADANIPORTS     | 60-180 day receivables  |
-| **Energy**       | RELIANCE, NTPC, ONGC       | 8-20% margins           |
-| **Metals**       | TATASTEEL, HINDALCO, VEDL  | Commodity-dependent     |
-| **Automotive**   | MARUTI, TATAMOTORS, HERO   | 5-15% margins           |
-
-**Add new sectors:** Edit `sectorIntelligence.js` → `SECTOR_DEFINITIONS`
+| Stage                    | Target        | Achieved |
+| ------------------------ | ------------- | -------- |
+| Data ingestion           | < 5s/company  | ~2–3s    |
+| Metric computation       | < 1s/12 years | ~0.5s    |
+| Z-score calculation      | < 1s          | ~0.3s    |
+| Anomaly detection        | < 1s          | ~0.5s    |
+| Full pipeline            | < 30s         | ~25–30s  |
+| False positive reduction | 40–60%        | ~50%     |
 
 ---
 
-## 🧪 Testing
+## Roadmap
 
-### Full End-to-End Test
-
-```bash
-# 1. Start services
-npm run dev          # Terminal 1: API
-npm run worker       # Terminal 2: Worker
-
-# 2. Queue company
-curl -X POST http://localhost:5000/api/ingest \
-  -H "Content-Type: application/json" \
-  -d '{"query":"Infosys Limited"}'
-
-# 3. Wait 30 seconds (watch worker logs)
-
-# 4. Retrieve results
-curl http://localhost:5000/api/ingest/company/[id]/financials
-
-# 5. Verify:
-# - financials[11].pnl.revenue exists        (Day 1 ✓)
-# - financials[11].computedMetrics exists    (Day 2 ✓)
-# - financials[11].anomalyProfile exists     (Day 2 ✓)
-# - financials[11].anomalyProfile.sector     (Day 3 ✓)
-# - anomalies suppressed/escalated           (Day 3 ✓)
-```
-
-### Test Multiple Sectors
-
-```bash
-# Try each sector to verify context-aware filtering
-Infosys Limited    # IT: Revenue growth suppressed
-HDFC Bank          # Banking: High leverage suppressed
-Sunpharma          # Pharma: Tax rate filtering
-DLF                # Construction: Long receivables normal
-```
+- [ ] React frontend dashboard
+- [ ] BSE / SEBI / MCA21 additional data sources
+- [ ] PDF parsing for annual reports
+- [ ] NLP on management discussion & analysis sections
+- [ ] Machine learning fraud classifier
+- [ ] Watchlist and portfolio tracking
+- [ ] Email alerts for new anomalies
 
 ---
 
-## 🔧 Configuration
+## Environment Variables
 
-### Environment Variables
-
-```bash
-# Database
+```env
 MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/quantira
 REDIS_URL=redis://default:password@host:port
 
 # Optional: Vector DB
 CHROMA_URL=http://localhost:8000
 PINECONE_API_KEY=your-key
-PINECONE_ENVIRONMENT=gcp-starter
-PINECONE_INDEX=sector-profiles
 
-# Server
 PORT=5000
 NODE_ENV=development
-LOG_LEVEL=info
 ```
 
-### Database Schemas
+---
 
-- **Company**: NSE symbol, sector, lastIngested, anomalySummary
-- **Filing**: Company reference, year, source, parseStatus
-- **FinancialData**: P&L, balance sheet, cash flow, metrics, anomaly profile
+## License
+
+Built for a hackathon. For educational and research purposes only.
 
 ---
 
-## 📈 Performance Metrics
+## Acknowledgements
 
-| Metric                           | Target        | Achieved  |
-| -------------------------------- | ------------- | --------- |
-| Data ingestion                   | < 5s/company  | ✅ 2-3s   |
-| Metric computation               | < 1s/12 years | ✅ 0.5s   |
-| Z-score calculation              | < 1s          | ✅ 0.3s   |
-| Anomaly detection                | < 1s          | ✅ 0.5s   |
-| Total pipeline                   | < 30s         | ✅ 25-30s |
-| False positive reduction (Day 3) | 40-60%        | ✅ ~50%   |
+Screener.in · MongoDB Atlas · Upstash · SEBI sector classifications
 
 ---
 
-## 🛣️ Roadmap
+_Built in 2 days by Neil — March 2026_
 
-### Completed (Days 1-3)
 
-- ✅ Data ingestion (10+ years)
-- ✅ 18+ financial metrics
-- ✅ Z-score analysis
-- ✅ 12 fraud detection rules
-- ✅ Sector intelligence layer
-- ✅ Vector DB ready
 
-### Next Steps
 
-- [ ] Frontend dashboard (React)
-- [ ] Add BSE/SEBI/MCA21 data sources
-- [ ] PDF parsing for annual reports
-- [ ] NLP for management discussion analysis
-- [ ] Machine learning fraud classifier
-- [ ] Peer comparison reports
-- [ ] Watchlist & portfolio tracking
-- [ ] Email alerts for anomalies
-- [ ] Mobile app
 
----
-
-## 📝 License
-
-This project was built for a hackathon. Use for educational and research purposes.
-
----
-
-## 👨‍💻 Author
-
-Built in 2 days by Neil | March 26, 2026
-
----
-
-## 🙏 Acknowledgments
-
-- **Screener.in** for financial data
-- **MongoDB Atlas** for database
-- **Upstash** for Redis
-- **SEBI** for company classification
-
----
-
-## 📞 Support
-
-For detailed technical documentation, see:
-
-- `COMPLETION_REPORT.md` — What's implemented
-- `TESTING_CHECKLIST.md` — How to validate
-- `DAY3_IMPLEMENTATION_GUIDE.md` — Sector intelligence deep dive
-- `DAY3_QUICKSTART.md` — 15-minute setup guide
-
----
-
-## 🎯 Key Innovation
-
-**Day 3: Sector Intelligence**
-
-The competitive advantage: Instead of flagging all anomalies equally, QUANTIRA understands **context**. The same financial metric is evaluated differently based on:
-
-- Industry norms
-- Peer benchmarks
-- Sector-specific characteristics
-
-Result: **Smart fraud detection that judges love** ⭐⭐⭐⭐⭐
-
----
-
-**Ready to detect fraud intelligently?**
-
-```bash
-git clone [repo]
-cd quantira/backend
-npm install
-npm run dev
-npm run worker
-```
-
-Then query any Indian publicly-traded company and get instant fraud analysis with sector context!
