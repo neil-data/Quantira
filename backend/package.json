@@ -1,0 +1,38 @@
+{
+  "name": "quantira-backend",
+  "version": "1.0.0",
+  "description": "Quantira - Financial forensics engine",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "worker": "node src/jobs/worker.js",
+    "seed-peers": "node src/scripts/seedPeerData.js"
+  },
+  "dependencies": {
+    "@upstash/redis": "^1.37.0",
+    "axios": "^1.6.0",
+    "bullmq": "^5.1.0",
+    "cheerio": "^1.2.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "form-data": "^4.0.0",
+    "helmet": "^7.1.0",
+    "ioredis": "^5.3.2",
+    "mongoose": "^8.0.3",
+    "morgan": "^1.10.0",
+    "node-cache": "^5.1.2",
+    "p-limit": "^5.0.0",
+    "pdf-parse": "^1.1.1",
+    "pdfkit": "^0.14.0",
+    "puppeteer": "^24.40.0",
+    "uuid": "^9.0.0",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
