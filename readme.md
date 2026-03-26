@@ -8,7 +8,7 @@
 
 ## 🎯 Overview
 
-QUANTIRA is a three-day hackathon project that builds an **intelligent financial fraud detection system** for Indian publicly-traded companies (NSE/BSE listed). It combines:
+QUANTIRA is a seven-day project can be launch as a product that builds an **intelligent financial fraud detection system** for Indian publicly-traded companies (NSE/BSE listed). It combines:
 
 - **Day 1**: Automated data ingestion (10+ years of financials)
 - **Day 2**: Advanced anomaly detection (18+ financial ratios, Z-score analysis)
