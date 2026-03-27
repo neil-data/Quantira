@@ -31,11 +31,18 @@ export const runAnomalyEngine = async (companyId, onProgress = () => {}) => {
     });
     const metricsWithZScores = computeZScores(metricsPerYear);
 
+    // --- Day 3: Industry Peer Benchmarking ---
+    const { benchmarkAnomalies } = require('./benchmarkingService');
+    // Assume sector is available on company or record (customize as needed)
+    const company = await Company.findById(companyId).lean();
+    const sector = company?.sector || 'IT'; // fallback sector
     const allAnomalies = [];
     for (let i = 0; i < records.length; i++) {
       const record = records[i];
       const metricsData = metricsWithZScores[i];
-      const yearAnomalies = detectAnomalies(metricsData, record.year);
+      let yearAnomalies = detectAnomalies(metricsData, record.year);
+      // Benchmark flagged metrics against sector medians
+      yearAnomalies = await benchmarkAnomalies(sector, yearAnomalies);
       allAnomalies.push(...yearAnomalies);
 
       const anomalyScore = calculateAnomalyScore(yearAnomalies);

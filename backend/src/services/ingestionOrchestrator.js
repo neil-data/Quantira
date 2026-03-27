@@ -1,18 +1,13 @@
 /**
  * Ingestion Orchestrator — Day 1 pipeline
- * 1) Discover annual report PDFs from exchange sources
- * 2) Download + cache PDFs
- * 3) Store raw PDFs in GridFS
- * 4) Parse PDFs to structured JSON
- * 5) Persist per-year financials in MongoDB
+ * Data source: Screener.in (structured financial data)
+ *
+ * TODO: BSE/NSE official API integration (future)
+ * TODO: PDF annual report parsing (future)
  */
 
 import { Company, Filing, FinancialData } from '../models/index.js';
-import { searchCompanyBSE, getAnnualReportsBSE } from './bseScraper.js';
-import { searchCompanyNSE, getAnnualReportsNSE } from './nseScraper.js';
 import { scrapeScreener, searchScreener } from './screenerScraper.js';
-import { getPDFPath, downloadPDF, uploadPDFToGridFS } from './pdfDownloader.js';
-import { parsePDF } from './pdfParser.js';
 import { cache } from '../config/database.js';
 import { logger } from '../utils/logger.js';
 import { normalizeCompanyName } from '../utils/helpers.js';
@@ -90,156 +85,27 @@ function mapScreenerToSchema(record) {
       keyAuditMatters: []
     },
     relatedPartyTransactions: transactions,
-    extractionWarnings: ['Fallback source used for this year']
+    extractionWarnings: ['Data sourced from Screener.in']
   };
 }
 
 async function resolveCompany(query) {
-  const [bse, nse, screener] = await Promise.allSettled([
-    searchCompanyBSE(query),
-    searchCompanyNSE(query),
-    searchScreener(query)
-  ]);
-
-  const bseResults = bse.status === 'fulfilled' ? bse.value : [];
-  const nseResults = nse.status === 'fulfilled' ? nse.value : [];
-  const screenerResults = screener.status === 'fulfilled' ? screener.value : [];
-
-  const bseTop = bseResults[0] || {};
-  const nseTop = nseResults[0] || {};
+  const screenerResults = await searchScreener(query).catch(() => []);
   const screenerTop = screenerResults[0] || {};
 
-  const nseSymbol = nseTop.nseSymbol || bseTop.nseSymbol || screenerTop.symbol || query.toUpperCase();
-  const name = bseTop.name || nseTop.name || screenerTop.name || query;
+  const nseSymbol = screenerTop.symbol || query.toUpperCase();
+  const name = screenerTop.name || query;
 
   return {
     name,
     nseSymbol,
-    bseCode: bseTop.bseCode || null,
-    industry: bseTop.industry || null,
-    sector: bseTop.sector || null
+    bseCode: null,
+    industry: null,
+    sector: null
   };
 }
 
-async function discoverAnnualReportFilings(companyInfo) {
-  const filings = [];
-
-  if (companyInfo.bseCode) {
-    const bseFilings = await getAnnualReportsBSE(companyInfo.bseCode, FROM_YEAR);
-    filings.push(...bseFilings.map(f => ({ ...f, source: 'BSE' })));
-  }
-
-  if (companyInfo.nseSymbol) {
-    const nseFilings = await getAnnualReportsNSE(companyInfo.nseSymbol, FROM_YEAR);
-    filings.push(...nseFilings.map(f => ({ ...f, source: 'NSE' })));
-  }
-
-  const deduped = new Map();
-  for (const filing of filings) {
-    if (!filing.year || !filing.pdfUrl) continue;
-
-    const key = String(filing.year);
-    if (!deduped.has(key)) {
-      deduped.set(key, filing);
-      continue;
-    }
-
-    const existing = deduped.get(key);
-    if (existing.source !== 'BSE' && filing.source === 'BSE') {
-      deduped.set(key, filing);
-    }
-  }
-
-  return Array.from(deduped.values())
-    .filter(f => f.year >= FROM_YEAR)
-    .sort((a, b) => a.year - b.year);
-}
-
-async function processPdfFiling(company, filingMeta) {
-  const filing = await Filing.findOneAndUpdate(
-    {
-      companyId: company._id,
-      year: filingMeta.year,
-      filingType: 'annual_report'
-    },
-    {
-      $set: {
-        source: filingMeta.source,
-        sourceUrl: filingMeta.pdfUrl,
-        parseStatus: 'parsing'
-      },
-      $setOnInsert: {
-        cin: company.cin || null
-      }
-    },
-    { upsert: true, new: true }
-  );
-
-  try {
-    const sourceSuffix = filingMeta.source.toLowerCase();
-    const pdfPath = getPDFPath(company._id, filingMeta.year, sourceSuffix);
-    const { pdfPath: localPdfPath, size } = await downloadPDF(filingMeta.pdfUrl, pdfPath);
-
-    const gridFsFileId = await uploadPDFToGridFS(localPdfPath, {
-      companyId: company._id.toString(),
-      filingId: filing._id.toString(),
-      year: filingMeta.year,
-      source: filingMeta.source,
-      sourceUrl: filingMeta.pdfUrl
-    });
-
-    const parsed = await parsePDF(localPdfPath);
-
-    const relatedRevenue = (parsed.relatedPartyTransactions || [])
-      .filter(txn => txn.transactionType === 'sale')
-      .reduce((sum, txn) => sum + (txn.amount || 0), 0);
-    const relatedExpenses = (parsed.relatedPartyTransactions || [])
-      .filter(txn => txn.transactionType === 'purchase')
-      .reduce((sum, txn) => sum + (txn.amount || 0), 0);
-
-    const financialDoc = {
-      companyId: company._id,
-      filingId: filing._id,
-      year: filingMeta.year,
-      balanceSheet: parsed.balanceSheet,
-      pnl: {
-        ...parsed.pnl,
-        relatedPartyRevenue: relatedRevenue || null,
-        relatedPartyExpenses: relatedExpenses || null
-      },
-      cashFlow: parsed.cashFlow,
-      auditorInfo: parsed.auditorInfo,
-      relatedPartyTransactions: parsed.relatedPartyTransactions || [],
-      rawSections: parsed.rawSections,
-      extractionConfidence: parsed.extractionConfidence,
-      extractionWarnings: parsed.extractionWarnings || []
-    };
-
-    await FinancialData.findOneAndUpdate(
-      { companyId: company._id, year: filingMeta.year },
-      { $set: financialDoc },
-      { upsert: true, new: true }
-    );
-
-    await Filing.findByIdAndUpdate(filing._id, {
-      parseStatus: 'parsed',
-      parsedAt: new Date(),
-      pdfPath: localPdfPath,
-      pdfSize: size,
-      gridFsFileId
-    });
-
-    return filingMeta.year;
-  } catch (error) {
-    await Filing.findByIdAndUpdate(filing._id, {
-      parseStatus: 'failed',
-      parseError: error.message
-    });
-    throw error;
-  }
-}
-
-async function fillMissingYearsFromFallback(company, companyInfo, existingYearsSet) {
+async function fillYearsFromScreener(company, companyInfo, existingYearsSet) {
   const symbol = companyInfo.nseSymbol;
   if (!symbol) return [];
 
@@ -260,7 +126,7 @@ async function fillMissingYearsFromFallback(company, companyInfo, existingYearsS
       },
       {
         $set: {
-          source: 'manual',
+          source: 'screener',
           sourceUrl: `https://www.screener.in/company/${symbol}/consolidated/`,
           parseStatus: 'parsed',
           parsedAt: new Date()
@@ -293,7 +159,7 @@ export async function ingestCompany(query, onProgress = () => {}, options = {}) 
   onProgress('resolving', 5, `Resolving company identity for "${query}"...`);
 
   const companyInfo = await resolveCompany(query);
-  if (!companyInfo?.nseSymbol && !companyInfo?.bseCode) {
+  if (!companyInfo?.nseSymbol) {
     throw new Error(`Company not found for query: ${query}`);
   }
 
@@ -301,7 +167,6 @@ export async function ingestCompany(query, onProgress = () => {}, options = {}) 
     {
       $or: [
         { nseSymbol: companyInfo.nseSymbol },
-        { bseCode: companyInfo.bseCode },
         { nameNormalized: normalizeCompanyName(companyInfo.name) }
       ]
     },
@@ -328,72 +193,40 @@ export async function ingestCompany(query, onProgress = () => {}, options = {}) 
       fromCache: true,
       yearsProcessed: cached.years,
       sourceCoverage: {
-        pdfYears: cached.pdfYears || [],
-        fallbackYears: cached.fallbackYears || []
+        screenerYears: cached.screenerYears || []
       }
     };
   }
 
-  onProgress('discovery', 15, 'Discovering annual report PDFs from exchange sources...');
-  const filings = await discoverAnnualReportFilings(companyInfo);
-  logger.info('Discovered annual report filings', {
-    query,
-    discovered: filings.length,
-    years: filings.map(f => f.year)
-  });
+  onProgress('ingesting', 20, `Fetching ${YEARS_TO_FETCH} years of financials from Screener.in...`);
 
   const yearsProcessed = new Set();
-  const pdfYears = new Set();
-  const fallbackYears = new Set();
-  const total = Math.max(filings.length, 1);
+  const screenerYears = new Set();
 
-  for (let i = 0; i < filings.length; i++) {
-    const filingMeta = filings[i];
-    const pct = 20 + Math.floor(((i + 1) / total) * 55);
-    onProgress('ingesting', pct, `Processing annual report FY${filingMeta.year} (${filingMeta.source})...`);
-
-    try {
-      const year = await processPdfFiling(company, filingMeta);
-      yearsProcessed.add(year);
-      pdfYears.add(year);
-    } catch (error) {
-      logger.warn('Failed PDF pipeline for year, will attempt fallback later', {
-        year: filingMeta.year,
-        source: filingMeta.source,
-        error: error.message
-      });
-    }
-  }
-
-  if (yearsProcessed.size < YEARS_TO_FETCH) {
-    onProgress('ingesting', 80, 'Filling missing years using fallback source...');
-    try {
-      const fallbackYearsFromSource = await fillMissingYearsFromFallback(company, companyInfo, yearsProcessed);
-      fallbackYearsFromSource.forEach(y => {
-        yearsProcessed.add(y);
-        fallbackYears.add(y);
-      });
-    } catch (error) {
-      logger.warn('Fallback ingestion failed', { error: error.message });
-    }
+  try {
+    const addedYears = await fillYearsFromScreener(company, companyInfo, yearsProcessed);
+    addedYears.forEach(y => {
+      yearsProcessed.add(y);
+      screenerYears.add(y);
+    });
+  } catch (error) {
+    logger.warn('Screener ingestion failed', { error: error.message });
   }
 
   const yearsArray = Array.from(yearsProcessed).sort((a, b) => a - b);
-  const pdfYearsArray = Array.from(pdfYears).sort((a, b) => a - b);
-  const fallbackYearsArray = Array.from(fallbackYears).sort((a, b) => a - b);
+  const screenerYearsArray = Array.from(screenerYears).sort((a, b) => a - b);
 
   await Company.findByIdAndUpdate(company._id, {
-    ingestStatus: yearsArray.length >= YEARS_TO_FETCH && pdfYearsArray.length > 0 ? 'complete' : 'partial',
+    ingestStatus: yearsArray.length >= YEARS_TO_FETCH ? 'complete' : 'partial',
     lastIngested: new Date(),
     yearsAvailable: yearsArray,
     filingCount: yearsArray.length
   });
 
   await cache.set(cacheKey, {
-    complete: yearsArray.length >= YEARS_TO_FETCH && pdfYearsArray.length > 0,
+    complete: yearsArray.length >= YEARS_TO_FETCH,
     years: yearsArray,
-    pdfYears: pdfYearsArray,
-    fallbackYears: fallbackYearsArray
+    screenerYears: screenerYearsArray
   });
 
   onProgress('complete', 100, `Ingestion complete — ${yearsArray.length} years processed`);
@@ -402,8 +235,7 @@ export async function ingestCompany(query, onProgress = () => {}, options = {}) 
     yearsProcessed: yearsArray,
     fromCache: false,
     sourceCoverage: {
-      pdfYears: pdfYearsArray,
-      fallbackYears: fallbackYearsArray
+      screenerYears: screenerYearsArray
     }
   };
 }

@@ -14,7 +14,12 @@
 
 Detect accounting fraud, earnings manipulation, and financial distress using advanced anomaly detection with sector-aware intelligence — for any NSE/BSE-listed Indian company.
 
-Built in **2 days** at a hackathon project idea | March 2026
+<<<<<<< HEAD
+Built in **3 days** at a hackathon | March 2026
+=======
+Built in **3 days** at a hackathon | March 2026
+
+> > > > > > > 690a67f (Day 3 complete: Add sector benchmarking, update README, and clean up ingestion pipeline. Remove PDF and exchange scrapers. Add demo sector profiles and benchmarking logic.)
 
 ---
 
@@ -38,20 +43,39 @@ The pipeline analyzes any Indian company in ~30 seconds with approximately 40–
 
 ### Day 2 — Anomaly Detection Engine
 
+<<<<<<< HEAD
 18+ financial ratios computed automatically across four categories:
 
-| Category      | Metrics                                          |
-| ------------- | ------------------------------------------------ |
-| Profitability | Net Margin, Operating Margin, ROA, ROE           |
-| Leverage      | Debt/Equity, Interest Coverage, Debt/Assets      |
-| Efficiency    | Receivables Days, Inventory Days, Asset Turnover |
-| Quality       | Free Cash Flow/NI, Cash Conversion, Tax Rate     |
+- **Profitability:** Net Margin, Operating Margin, ROA, ROE
+- **Leverage:** Debt/Equity, Interest Coverage, Debt/Assets
+- **Efficiency:** Receivables Days, Inventory Days, Asset Turnover
+- **Quality:** Free Cash Flow/NI, Cash Conversion, Tax Rate
+  Z-score analysis is run against each company's own 10-year history
+  12 fraud detection rules cover cash flow quality issues, accrual anomalies, margin divergence, debt stress, earnings manipulation signals, and more
 
-Z-score analysis is run against each company's own 10-year history. 12 fraud detection rules cover cash flow quality issues, accrual anomalies, margin divergence, debt stress, earnings manipulation signals, and more.
+### Day 3 — Sector Intelligence (Peer Benchmarking)
 
-### Day 3 — Sector Intelligence
+- The core differentiator: QUANTIRA evaluates each anomaly in sector context, not just flat rules
+- 8 pre-seeded SEBI sector profiles: IT, Pharma, Banking, FMCG, Construction, Energy, Metals, Automotive
+- Benchmarks use Median ± 1.5σ thresholds
+- Vector DB integration (Chroma/Pinecone) ready for semantic peer search
+- # Example:
+- 18+ financial ratios computed automatically across four categories:
+  - **Profitability:** Net Margin, Operating Margin, ROA, ROE
+  - **Leverage:** Debt/Equity, Interest Coverage, Debt/Assets
+  - **Efficiency:** Receivables Days, Inventory Days, Asset Turnover
+  - **Quality:** Free Cash Flow/NI, Cash Conversion, Tax Rate
+- Z-score analysis is run against each company's own 10-year history
+- 12 fraud detection rules cover cash flow quality issues, accrual anomalies, margin divergence, debt stress, earnings manipulation signals, and more
 
-The core differentiator. Rather than applying flat rules to all companies equally, QUANTIRA evaluates each anomaly in sector context.
+### Day 3 — Sector Intelligence (Peer Benchmarking)
+
+- The core differentiator: QUANTIRA evaluates each anomaly in sector context, not just flat rules
+- 8 pre-seeded SEBI sector profiles: IT, Pharma, Banking, FMCG, Construction, Energy, Metals, Automotive
+- Benchmarks use Median ± 1.5σ thresholds
+- Vector DB integration (Chroma/Pinecone) ready for semantic peer search
+- Example:
+  > > > > > > > 690a67f (Day 3 complete: Add sector benchmarking, update README, and clean up ingestion pipeline. Remove PDF and exchange scrapers. Add demo sector profiles and benchmarking logic.)
 
 | Traditional Approach            | QUANTIRA Approach                                       |
 | ------------------------------- | ------------------------------------------------------- |
@@ -59,7 +83,11 @@ The core differentiator. Rather than applying flat rules to all companies equall
 | "5x leverage = SOLVENCY RISK"   | "5x → normal for Banks (5–15x), abnormal for Tech"      |
 | "120 receivables days = FRAUD"  | "120 days → normal for Construction, suspicious for IT" |
 
-8 pre-seeded SEBI sector profiles: IT, Pharma, Banking, FMCG, Construction, Energy, Metals, Automotive. Benchmarks use Median ± 1.5σ thresholds. Vector DB integration (Chroma/Pinecone) is ready for semantic peer search.
+<<<<<<< HEAD
+
+=======
+
+> > > > > > > 690a67f (Day 3 complete: Add sector benchmarking, update README, and clean up ingestion pipeline. Remove PDF and exchange scrapers. Add demo sector profiles and benchmarking logic.)
 
 ---
 
@@ -295,8 +323,8 @@ Screener.in · MongoDB Atlas · Upstash · SEBI sector classifications
 ---
 
 _Built in 2 days by Neil — March 2026_
+<<<<<<< HEAD
 
+=======
 
-
-
-
+> > > > > > > 690a67f (Day 3 complete: Add sector benchmarking, update README, and clean up ingestion pipeline. Remove PDF and exchange scrapers. Add demo sector profiles and benchmarking logic.)

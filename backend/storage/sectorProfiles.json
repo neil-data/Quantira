@@ -1,0 +1,20 @@
+[
+  {
+    "sector": "IT",
+    "metrics": {
+      "revenueVsCashFlowDivergence": {
+        "median": 0.8,
+        "stddev": 0.2
+      },
+      "debtToEquityTrend": {
+        "median": 0.01,
+        "stddev": 0.05
+      }
+    },
+    "companies": [
+      "CIN1",
+      "CIN2",
+      "CIN3"
+    ]
+  }
+]

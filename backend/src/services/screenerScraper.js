@@ -85,72 +85,81 @@ function extractTable($, sectionId) {
 }
 
 /**
+ * Find a row value by exact or partial label match.
+ * exactKeys are tried first (full string match), then partialKeys (includes match).
+ * This prevents "Tax %" matching when you want "Tax" expense amount.
+ */
+function getRowValue(rows, exactKeys, partialKeys, yearIndex) {
+  // 1. Try exact match first
+  for (const key of exactKeys) {
+    const found = Object.keys(rows).find(k => k.toLowerCase() === key.toLowerCase());
+    if (found && rows[found][yearIndex] != null) return rows[found][yearIndex];
+  }
+  // 2. Fall back to partial match, but exclude percentage rows
+  for (const key of partialKeys) {
+    const found = Object.keys(rows).find(k =>
+      k.toLowerCase().includes(key.toLowerCase()) &&
+      !k.includes('%') &&
+      !k.toLowerCase().includes('ratio')
+    );
+    if (found && rows[found][yearIndex] != null) return rows[found][yearIndex];
+  }
+  return null;
+}
+
+/**
  * Map screener row labels to our schema fields
  */
 function mapPLData(rows, yearIndex) {
-  const get = (keys) => {
-    for (const key of keys) {
-      const found = Object.keys(rows).find(k => k.toLowerCase().includes(key.toLowerCase()));
-      if (found && rows[found][yearIndex] != null) return rows[found][yearIndex];
-    }
-    return null;
-  };
+  const g = (exact, partial) => getRowValue(rows, exact, partial, yearIndex);
 
   return {
-    revenue: get(['Sales', 'Revenue from Operations', 'Revenue']),
-    operatingProfit: get(['Operating Profit', 'EBITDA', 'PBDIT']),
-    depreciation: get(['Depreciation']),
-    ebit: get(['EBIT']),
-    interestExpense: get(['Interest']),
-    profitBeforeTax: get(['Profit before tax', 'PBT']),
-    tax: get(['Tax']),
-    netProfit: get(['Net Profit', 'PAT', 'Profit after tax']),
-    eps: get(['EPS']),
-    dividendPayout: get(['Dividend Payout']),
+    revenue:          g(['Sales'], ['Revenue from Operations', 'Revenue', 'Sales']),
+    operatingProfit:  g(['Operating Profit', 'PBDIT'], ['Operating Profit', 'EBITDA', 'PBDIT']),
+    depreciation:     g(['Depreciation'], ['Depreciation']),
+    ebit:             g(['EBIT'], ['EBIT']),
+    interestExpense:  g(['Interest'], ['Interest']),
+    // FIX: Use 'Profit before tax' exact match to avoid hitting 'Tax %'
+    profitBeforeTax:  g(['Profit before tax', 'PBT'], ['Profit before tax']),
+    // FIX: Use exact 'Tax' match — avoids 'Tax %' row
+    tax:              g(['Tax'], ['Tax Expense', 'Income Tax']),
+    netProfit:        g(['Net Profit', 'PAT'], ['Net Profit', 'Profit after tax']),
+    eps:              g(['EPS in Rs', 'EPS'], ['EPS']),
+    dividendPayout:   g(['Dividend Payout %'], ['Dividend Payout']),
   };
 }
 
 function mapBalanceSheetData(rows, yearIndex) {
-  const get = (keys) => {
-    for (const key of keys) {
-      const found = Object.keys(rows).find(k => k.toLowerCase().includes(key.toLowerCase()));
-      if (found && rows[found][yearIndex] != null) return rows[found][yearIndex];
-    }
-    return null;
-  };
+  const g = (exact, partial) => getRowValue(rows, exact, partial, yearIndex);
 
   return {
-    equity: get(['Equity Capital', 'Share Capital']),
-    reserves: get(['Reserves']),
-    borrowings: get(['Borrowings', 'Total Debt']),
-    otherLiabilities: get(['Other Liabilities']),
-    totalLiabilities: get(['Total Liabilities', 'Total Assets']),
-    fixedAssets: get(['Fixed Assets', 'Net Block']),
-    capitalWorkInProgress: get(['CWIP', 'Capital Work']),
-    investments: get(['Investments']),
-    otherAssets: get(['Other Assets']),
-    totalAssets: get(['Total Assets']),
-    tradeReceivables: get(['Debtors', 'Trade Receivables', 'Receivables']),
-    inventory: get(['Inventory', 'Inventories']),
-    cash: get(['Cash', 'Cash Equivalents']),
+    equity:              g(['Equity Capital', 'Share Capital'], ['Equity Capital', 'Share Capital']),
+    reserves:            g(['Reserves'], ['Reserves']),
+    borrowings:          g(['Borrowings'], ['Borrowings', 'Total Debt']),
+    otherLiabilities:    g(['Other Liabilities'], ['Other Liabilities']),
+    totalLiabilities:    g(['Total Liabilities'], ['Total Liabilities']),
+    fixedAssets:         g(['Fixed Assets', 'Net Block'], ['Fixed Assets', 'Net Block']),
+    capitalWorkInProgress: g(['CWIP'], ['Capital Work']),
+    investments:         g(['Investments'], ['Investments']),
+    otherAssets:         g(['Other Assets'], ['Other Assets']),
+    totalAssets:         g(['Total Assets'], ['Total Assets']),
+    // FIX: 'Debtor Days' is a ratio — look for the actual receivables balance
+    tradeReceivables:    g(['Debtors', 'Trade Receivables'], ['Receivables', 'Debtors']),
+    inventory:           g(['Inventory', 'Inventories'], ['Inventory']),
+    // FIX: 'Cash Equivalents' is the correct Screener label
+    cash:                g(['Cash Equivalents', 'Cash & Bank'], ['Cash Equivalent', 'Cash and Bank', 'Cash']),
   };
 }
 
 function mapCashFlowData(rows, yearIndex) {
-  const get = (keys) => {
-    for (const key of keys) {
-      const found = Object.keys(rows).find(k => k.toLowerCase().includes(key.toLowerCase()));
-      if (found && rows[found][yearIndex] != null) return rows[found][yearIndex];
-    }
-    return null;
-  };
+  const g = (exact, partial) => getRowValue(rows, exact, partial, yearIndex);
 
   return {
-    operatingCashFlow: get(['Cash from Operating', 'Operating Activities', 'CFO']),
-    investingCashFlow: get(['Cash from Investing', 'Investing Activities', 'CFI']),
-    financingCashFlow: get(['Cash from Financing', 'Financing Activities', 'CFF']),
-    netCashFlow: get(['Net Cash Flow', 'Net Change']),
-    capex: get(['Capital Expenditure', 'Capex', 'Purchase of Fixed']),
+    operatingCashFlow:  g(['Cash from Operating Activity'], ['Cash from Operating', 'Operating Activities', 'CFO']),
+    investingCashFlow:  g(['Cash from Investing Activity'], ['Cash from Investing', 'Investing Activities', 'CFI']),
+    financingCashFlow:  g(['Cash from Financing Activity'], ['Cash from Financing', 'Financing Activities', 'CFF']),
+    netCashFlow:        g(['Net Cash Flow'], ['Net Cash Flow', 'Net Change']),
+    capex:              g(['Capital Expenditure'], ['Capex', 'Purchase of Fixed']),
   };
 }
 
@@ -209,10 +218,11 @@ export async function scrapeScreener(symbol, consolidated = true) {
     const bs = bsTable ? mapBalanceSheetData(bsTable.rows, i) : {};
     const cf = cfTable ? mapCashFlowData(cfTable.rows, i) : {};
 
-    // Compute derived ratios
+    // Compute derived fields
     const totalDebt = bs.borrowings || 0;
     const totalEquity = (bs.equity || 0) + (bs.reserves || 0);
     const ebitda = pl.operatingProfit;
+
     const interestCoverage = (pl.interestExpense && ebitda)
       ? ebitda / pl.interestExpense : null;
     const debtToEquity = totalEquity > 0 ? totalDebt / totalEquity : null;
@@ -222,6 +232,12 @@ export async function scrapeScreener(symbol, consolidated = true) {
       ? (ebitda / pl.revenue) * 100 : null;
     const netMargin = (pl.netProfit && pl.revenue)
       ? (pl.netProfit / pl.revenue) * 100 : null;
+
+    // Compute actual tax amount if Screener gives tax as expense line
+    // Guard: if tax value equals pbt, it's likely a parsing error — null it out
+    const taxExpense = (pl.tax != null && pl.profitBeforeTax != null && pl.tax === pl.profitBeforeTax)
+      ? null
+      : pl.tax;
 
     results.push({
       year,
@@ -235,7 +251,7 @@ export async function scrapeScreener(symbol, consolidated = true) {
       ebit: pl.ebit,
       interestExpense: pl.interestExpense,
       profitBeforeTax: pl.profitBeforeTax,
-      tax: pl.tax,
+      tax: taxExpense,
       netProfit: pl.netProfit,
       eps: pl.eps,
 
